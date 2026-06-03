@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OH 卡牌·在线抽取</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            background: linear-gradient(145deg, #1e3c2c 0%, #2a4a35 100%);
+            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .app-container {
+            max-width: 600px;
+            width: 100%;
+            background: rgba(255,248,225,0.95);
+            border-radius: 56px;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.3);
+            padding: 20px 20px 30px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 1.9rem;
+            margin: 0 0 8px;
+            color: #f7e5c2;
+            background: #2b5e3b;
+            border-radius: 60px;
+            padding: 10px 0;
+        }
+        .info-banner {
+            background: #fff2e0;
+            border-radius: 48px;
+            padding: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 0.75rem;
+        }
+        .badge-info {
+            font-size: 0.75rem;
+            background: #d9c5a7;
+            display: inline-block;
+            padding: 4px 16px;
+            border-radius: 50px;
+            margin: 5px 0;
+        }
+        .slots-area {
+            background: #eadbbe;
+            border-radius: 48px;
+            padding: 20px 12px;
+            margin: 20px 0;
+            box-shadow: inset 0 0 0 2px #fff9ef, 0 8px 18px rgba(0,0,0,0.2);
+        }
+        .slots-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #4c2f1d;
+            font-size: 1.2rem;
+        }
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            justify-items: center;
+            align-items: center;
+        }
+        .card-slot {
+            width: 100%;
+            max-width: 120px;
+            aspect-ratio: 3 / 4;
+            background: #ecd9b4;
+            border-radius: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #fbe9c3;
+            position: relative;
+            overflow: hidden;
+            background-color: #b78f5a;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .card-slot.empty {
+            background: repeating-linear-gradient(45deg, #c8aa7a, #c8aa7a 12px, #b38f5c 12px, #b38f5c 24px);
+            border: 2px dashed #f5dbaa;
+        }
+        .card-inner {
+            width: 92%;
+            height: 92%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-inner.flipped {
+            transform: rotateY(180deg);
+        }
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .card-back {
+            background: linear-gradient(145deg, #8b6914, #a6852a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: rgba(255,255,255,0.6);
+        }
+        .card-front {
+            transform: rotateY(180deg);
+        }
+        .card-front img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .slot-placeholder {
+            font-size: 1.8rem;
+            color: #faf0cf;
+            font-weight: bold;
+        }
+        .slot-index {
+            position: absolute;
+            bottom: 5px;
+            right: 8px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 20px;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 20px 0 15px;
+        }
+        .btn {
+            flex: 1;
+            background: #efc48c;
+            border: none;
+            padding: 14px 6px;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #886a3c;
+            text-align: center;
+        }
+        .btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #886a3c;
+        }
+        .btn-primary { background: #ff9f4a; color: white; box-shadow: 0 5px 0 #aa6d2b; }
+        .btn-danger { background: #9f7e54; color: #2b2a1e; box-shadow: 0 5px 0 #6b4e2c; }
+        .btn:disabled { opacity: 0.6; transform: none; cursor: not-allowed; }
+        .toast-msg {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2b2b1fe6;
+            backdrop-filter: blur(10px);
+            color: #ffefb9;
+            padding: 8px 24px;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            z-index: 1000;
+            pointer-events: none;
+            transition: 0.2s;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            color: white;
+            flex-direction: column;
+            gap: 15px;
+            visibility: hidden;
+        }
+        .loading-overlay.active { visibility: visible; }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top-color: #ff9f4a;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #fef0cf;
+            margin-top: 20px;
+            background: #2c5e3c80;
+            border-radius: 40px;
+            padding: 6px;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <h1>✨ OH 心灵卡牌 ✨</h1>
+    <div class="info-banner">
+        <span class="badge-info" id="cardCountInfo">📦 卡牌池：加载中...</span>
+    </div>
+    <div class="slots-area" id="slotsCaptureArea">
+        <div class="slots-title">🌟 抽出的卡牌 · 心灵启示 🌟</div>
+        <div class="cards-grid" id="cardsSlotsGrid"></div>
+    </div>
+    <div class="action-buttons">
+        <button class="btn btn-primary" id="drawBtn" disabled>🎴 抽一张卡</button>
+        <button class="btn" id="resetGameBtn" disabled>🔄 重置抽取</button>
+        <button class="btn btn-danger" id="saveScreenshotBtn" disabled>📸 保存截图</button>
+    </div>
+    <footer>✨ 分享此 HTML 即可使用 ✨</footer>
+</div>
+<div id="toastMessage" class="toast-msg" style="opacity:0;">提示</div>
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div>初始化中，请稍候...</div>
+</div>
+
+<script>
+    // ==================== 本地图片列表（88 张）====================
+    const cardImageUrls = [
+        "图卡/1.jpg", "图卡/2.jpg", "图卡/3.jpg", "图卡/4.jpg", "图卡/5.jpg", "图卡/6.jpg",
+        "图卡/7.jpg", "图卡/8.jpg", "图卡/9.jpg", "图卡/10.jpg", "图卡/11.jpg", "图卡/12.jpg",
+        "图卡/13.jpg", "图卡/15.jpg", "图卡/16.jpg", "图卡/17.jpg", "图卡/18.jpg", "图卡/19.jpg",
+        "图卡/20.jpg", "图卡/21.jpg", "图卡/22.jpg", "图卡/23.jpg", "图卡/24.jpg", "图卡/25.jpg",
+        "图卡/26.jpg", "图卡/27.jpg", "图卡/28.jpg", "图卡/30.jpg", "图卡/31.jpg", "图卡/32.jpg",
+        "图卡/33.jpg", "图卡/34.jpg", "图卡/35.jpg", "图卡/36.jpg", "图卡/37.jpg", "图卡/38.jpg",
+        "图卡/39.jpg", "图卡/40.jpg", "图卡/41.jpg", "图卡/42.jpg", "图卡/43.jpg", "图卡/44.jpg",
+        "图卡/45.jpg", "图卡/46.jpg", "图卡/47_.jpg", "图卡/48.jpg", "图卡/49.jpg", "图卡/50.jpg",
+        "图卡/51.jpg", "图卡/52.jpg", "图卡/53.jpg", "图卡/54.jpg", "图卡/55.jpg", "图卡/56.jpg",
+        "图卡/57.jpg", "图卡/58.jpg", "图卡/59.jpg", "图卡/60.jpg", "图卡/61.jpg", "图卡/62.jpg",
+        "图卡/63.jpg", "图卡/64.jpg", "图卡/65.jpg", "图卡/66.jpg", "图卡/67.jpg", "图卡/68.jpg",
+        "图卡/69.jpg", "图卡/70.jpg", "图卡/71.jpg", "图卡/72.jpg", "图卡/73.jpg", "图卡/74.jpg",
+        "图卡/75.jpg", "图卡/76.jpg", "图卡/77.jpg", "图卡/79.jpg", "图卡/80.jpg", "图卡/81.jpg",
+        "图卡/82.jpg", "图卡/83.jpg", "图卡/84.jpg", "图卡/85.jpg", "图卡/86.jpg", "图卡/87.jpg",
+        "图卡/88.jpg"
+    ];
+    // ==========================================================================
+
+    let allCards = [], remainingCards = [], drawnCards = [];
+    const maxDrawLimit = 6;
+    const drawBtn = document.getElementById('drawBtn');
+    const resetGameBtn = document.getElementById('resetGameBtn');
+    const saveScreenshotBtn = document.getElementById('saveScreenshotBtn');
+    const cardsSlotsGrid = document.getElementById('cardsSlotsGrid');
+    const cardCountInfo = document.getElementById('cardCountInfo');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const toastEl = document.getElementById('toastMessage');
+
+    let toastTimer = null;
+    function showMessage(msg, duration = 1800) {
+        if (toastTimer) clearTimeout(toastTimer);
+        toastEl.style.opacity = '1';
+        toastEl.innerText = msg;
+        toastTimer = setTimeout(() => { toastEl.style.opacity = '0'; }, duration);
+    }
+
+    function setButtonsEnabled(enabled) {
+        if (enabled && allCards.length) {
+            drawBtn.disabled = false;
+            resetGameBtn.disabled = false;
+            saveScreenshotBtn.disabled = false;
+        } else {
+            drawBtn.disabled = resetGameBtn.disabled = saveScreenshotBtn.disabled = true;
+        }
+    }
+
+    function renderSlots() {
+        const slots = cardsSlotsGrid.children;
+        for (let i = 0; i < maxDrawLimit; i++) {
+            const slot = slots[i];
+            if (i < drawnCards.length) {
+                const card = drawnCards[i];
+                slot.classList.remove('empty');
+                const cardInner = slot.querySelector('.card-inner');
+                if (cardInner) {
+                    cardInner.querySelector('.card-front img').src = card.url;
+                    cardInner.querySelector('.card-front img').alt = card.name;
+                } else {
+                    slot.innerHTML = `
+                        <div class="card-inner">
+                            <div class="card-face card-back">🎴</div>
+                            <div class="card-face card-front"><img src="${card.url}" alt="${card.name}"></div>
+                        </div>
+                        <div class="slot-index">${i+1}</div>
+                    `;
+                    setTimeout(() => {
+                        slot.querySelector('.card-inner').classList.add('flipped');
+                    }, 50);
+                }
+            } else {
+                slot.innerHTML = '';
+                slot.classList.add('empty');
+                const placeholder = document.createElement('div');
+                placeholder.className = 'slot-placeholder';
+                placeholder.innerText = '❓';
+                const idxBadge = document.createElement('div');
+                idxBadge.className = 'slot-index';
+                idxBadge.innerText = `${i+1}`;
+                slot.appendChild(placeholder);
+                slot.appendChild(idxBadge);
+            }
+        }
+        if (allCards.length === 0) drawBtn.disabled = true;
+        else if (drawnCards.length >= maxDrawLimit || remainingCards.length === 0) drawBtn.disabled = true;
+        else drawBtn.disabled = false;
+    }
+
+    function resetGame() {
+        if (!allCards.length) return;
+        drawnCards = [];
+        remainingCards = [...allCards];
+        for (let i = remainingCards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [remainingCards[i], remainingCards[j]] = [remainingCards[j], remainingCards[i]];
+        }
+        renderSlots();
+        showMessage(`🔄 重置成功！`, 1200);
+    }
+
+    function drawCard() {
+        if (!allCards.length) return showMessage("卡牌未加载");
+        if (drawnCards.length >= maxDrawLimit) return showMessage("已抽满 6 张");
+        if (!remainingCards.length) return showMessage("无剩余卡牌，请重置");
+        const idx = Math.floor(Math.random() * remainingCards.length);
+        const card = remainingCards[idx];
+        remainingCards.splice(idx, 1);
+        drawnCards.push(card);
+        renderSlots();
+        showMessage(`🎴 抽到：「${card.name}」`, 1000);
+        if (drawnCards.length === maxDrawLimit) showMessage("🎉 六张集齐！可截图保存", 1800);
+    }
+
+    // 动态加载 html2canvas（仅在需要截图时加载）
+    let html2canvasLib = null;
+    async function loadHtml2Canvas() {
+        if (!html2canvasLib) {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+            document.head.appendChild(script);
+            html2canvasLib = await new Promise((resolve) => {
+                script.onload = () => resolve(window.html2canvas);
+            });
+        }
+        return html2canvasLib;
+    }
+
+    async function captureScreenshot() {
+        const el = document.getElementById('slotsCaptureArea');
+        if (!el) return;
+        try {
+            showMessage("📸 正在加载截图组件...", 1000);
+            const html2canvas = await loadHtml2Canvas();
+            showMessage("📸 生成截图...", 1000);
+            const canvas = await html2canvas(el, { scale: 2.5, backgroundColor: '#eadbbe', useCORS: true });
+            const link = document.createElement('a');
+            link.download = `ohcards_${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+            showMessage("✅ 截图已保存", 1500);
+        } catch(e) { showMessage("截图失败", 1500); }
+    }
+
+    // 优化：懒加载图片，不阻塞页面初始化
+    function initCards() {
+        cardsSlotsGrid.innerHTML = '';
+        for (let i = 0; i < maxDrawLimit; i++) {
+            const div = document.createElement('div');
+            div.className = 'card-slot empty';
+            div.innerHTML = `<div class="slot-placeholder">❓</div><div class="slot-index">${i+1}</div>`;
+            cardsSlotsGrid.appendChild(div);
+        }
+        
+        if (!cardImageUrls.length) {
+            cardCountInfo.innerText = '⚠️ 未配置图片';
+            loadingOverlay.classList.remove('active');
+            return;
+        }
+
+        // 快速初始化：只创建卡牌对象，不等待图片加载
+        allCards = cardImageUrls.map((url, idx) => {
+            let name = url.split('/').pop();
+            if (name.length > 20) name = name.slice(0,18)+'..';
+            return { id: `c${idx}`, url, name };
+        });
+        
+        remainingCards = [...allCards];
+        for (let i = remainingCards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [remainingCards[i], remainingCards[j]] = [remainingCards[j], remainingCards[i]];
+        }
+        
+        cardCountInfo.innerHTML = `📦 卡牌池：${allCards.length} 张`;
+        setButtonsEnabled(true);
+        renderSlots();
+        loadingOverlay.classList.remove('active');
+        showMessage(`✅ 已就绪，开始抽卡吧！`, 2000);
+    }
+
+    drawBtn.addEventListener('click', drawCard);
+    resetGameBtn.addEventListener('click', resetGame);
+    saveScreenshotBtn.addEventListener('click', captureScreenshot);
+    
+    // 启动初始化
+    initCards();
+</script>
+</body>
+</html>
